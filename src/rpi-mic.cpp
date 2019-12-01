@@ -1,6 +1,10 @@
 // -*- mode: c++; c-basic-offset: 4; encoding: utf-8; -*-
 
+#include <algorithm>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
+
 #include <alsa/asoundlib.h>
 
 int main(int, char**) {
@@ -41,16 +45,38 @@ int main(int, char**) {
         }
         std::cout << "    Long Name: " << longname << std::endl;
 
-        snd_ctl_t *ctl = nullptr;
-        rv = snd_ctl_open(&ctl, name, 0);
+        void **hints;
+        rv = snd_device_name_hint(card, "pcm", &hints);
         if (rv < 0) {
-            std::cerr << "Error opening snd_ctl_t: " << rv << std::endl;
+            std::cerr << "Error getting device name hints: " << rv << std::endl;
             break;
         }
 
-        rv = snd_ctl_close(ctl);
+        int hint_index = 0;
+        while (hints[hint_index] != nullptr) {
+            char *name = snd_device_name_get_hint(hints[hint_index], "NAME");
+            char *desc = snd_device_name_get_hint(hints[hint_index], "DESC");
+            char *ioid = snd_device_name_get_hint(hints[hint_index], "IOID");
+
+            std::replace(desc, desc + std::strlen(desc), '\n', ' ');
+
+            std::cout << "    PCM Device " << name << "\n";
+            std::cout << "        Description: " << desc << "\n";
+            if (ioid != nullptr) {
+                std::cout << "        IOID: " << ioid << std::endl;
+            } else {
+                std::cout << "        IOID: NULL (both)" << std::endl;
+            }
+
+            std::free(name);
+            std::free(desc);
+            std::free(ioid);
+            hint_index += 1;
+        }
+
+        rv = snd_device_name_free_hint(hints);
         if (rv < 0) {
-            std::cerr << "Error closing snd_ctl_t: " << rv << std::endl;
+            std::cerr << "Error freeing device name hints: " << rv << std::endl;
             break;
         }
     }
